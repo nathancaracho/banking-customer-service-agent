@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "assistant-ui": "^0.0.104",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "shadcn": "^4.12.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
