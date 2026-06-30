@@ -1,3 +1,14 @@
+x-otel-environment: &otel-environment
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-local}
+
+include:
+  - path: observability/docker-compose.signoz.yaml
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -64,10 +75,12 @@ services:
       - ./.litellm/config.yaml:/app/config.yaml:ro
   identity:
     build:
-      context: ./identity
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: identity/Dockerfile
     restart: unless-stopped
     environment:
+      <<: *otel-environment
+      OTEL_SERVICE_NAME: identity
       IDENTITY_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
       IDENTITY_DATABASE_SCHEMA: ${IDENTITY_DATABASE_SCHEMA:-identity}
     ports:
@@ -77,10 +90,14 @@ services:
         condition: service_healthy
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
+    env_file:
+      - ./.litellm/.env
     environment:
+      <<: *otel-environment
+      OTEL_SERVICE_NAME: backend
       BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
       BACKEND_DATABASE_SCHEMA: ${BACKEND_DATABASE_SCHEMA:-backend}
       BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?BACKEND_JWT_SECRET is required}
@@ -92,6 +109,13 @@ services:
       BACKEND_RECENT_MESSAGES_LIMIT: ${BACKEND_RECENT_MESSAGES_LIMIT:-20}
       BACKEND_FRONTEND_ORIGIN: ${BACKEND_FRONTEND_ORIGIN:-http://localhost:5173}
       BACKEND_DEMO_PASSWORD: ${BACKEND_DEMO_PASSWORD:?BACKEND_DEMO_PASSWORD is required}
+      BACKEND_LITELLM_URL: ${BACKEND_LITELLM_URL:-http://litellm:4000}
+      BACKEND_LITELLM_MODEL: ${BACKEND_LITELLM_MODEL:-openai/gpt-4o-mini}
+      BACKEND_EMBEDDING_MODEL: ${BACKEND_EMBEDDING_MODEL:-kb-embedding}
+      BACKEND_CHROMA_URL: ${BACKEND_CHROMA_URL:-http://chroma:8000}
+      BACKEND_CHROMA_COLLECTION: ${BACKEND_CHROMA_COLLECTION:-banking_knowledge_base_v1}
+      BACKEND_KB_MAX_FILE_SIZE_BYTES: ${BACKEND_KB_MAX_FILE_SIZE_BYTES:-10485760}
+      BACKEND_BANKING_API_URL: ${BACKEND_BANKING_API_URL:-http://banking-api:8300}
     ports:
       - "${BACKEND_PORT:-8200}:8200"
     depends_on:
@@ -99,6 +123,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      chroma:
+        condition: service_started
+      litellm:
+        condition: service_started
   banking-api:
     build:
       context: ./banking_api
@@ -126,10 +154,12 @@ services:
       retries: 10
   mcp-proxy:
     build:
-      context: ./mcp_proxy
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: mcp_proxy/Dockerfile
     restart: unless-stopped
     environment:
+      <<: *otel-environment
+      OTEL_SERVICE_NAME: mcp-proxy
       MCP_BANKING_API_BASE_URL: http://banking-api:8300
       MCP_REQUEST_TIMEOUT_SECONDS: ${MCP_REQUEST_TIMEOUT_SECONDS:-10}
       MCP_HOST: 0.0.0.0
@@ -139,7 +169,47 @@ services:
     depends_on:
       banking-api:
         condition: service_healthy
-  frontend:
+  agents:
+    build:
+      context: .
+      dockerfile: agents/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.litellm/.env
+    environment:
+      <<: *otel-environment
+      OTEL_SERVICE_NAME: agents
+      AGENTS_RABBITMQ_URL: amqp://${RABBITMQ_USER:-app}:${RABBITMQ_PASSWORD:-app}@rabbitmq:5672/${RABBITMQ_VHOST:-app}
+      AGENTS_REQUEST_QUEUE: ${AGENTS_REQUEST_QUEUE:-agent.requests}
+      AGENTS_REPLY_QUEUE: ${AGENTS_REPLY_QUEUE:-agent.replies}
+      AGENTS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
+      AGENTS_DATABASE_SCHEMA: ${AGENTS_DATABASE_SCHEMA:-agents}
+      AGENTS_IDENTITY_BASE_URL: http://identity:8100
+      AGENTS_IDENTITY_TIMEOUT_SECONDS: ${AGENTS_IDENTITY_TIMEOUT_SECONDS:-10}
+      AGENTS_MCP_URL: http://mcp-proxy:8400/mcp
+      AGENTS_MCP_TIMEOUT_SECONDS: ${AGENTS_MCP_TIMEOUT_SECONDS:-20}
+      AGENTS_LITELLM_URL: ${AGENTS_LITELLM_URL:-http://litellm:4000}
+      AGENTS_LITELLM_MODEL: ${AGENTS_LITELLM_MODEL:-chat-default}
+      AGENTS_EMBEDDING_MODEL: ${AGENTS_EMBEDDING_MODEL:-kb-embedding}
+      AGENTS_EMBEDDING_DIMENSIONS: ${AGENTS_EMBEDDING_DIMENSIONS:-768}
+      AGENTS_CHROMA_URL: ${AGENTS_CHROMA_URL:-http://chroma:8000}
+      AGENTS_CHROMA_COLLECTION: ${AGENTS_CHROMA_COLLECTION:-banking_knowledge_base_v1}
+      AGENTS_CHROMA_TENANT: ${AGENTS_CHROMA_TENANT:-default_tenant}
+      AGENTS_CHROMA_DATABASE: ${AGENTS_CHROMA_DATABASE:-default_database}
+      AGENTS_RETRIEVAL_RESULTS_LIMIT: ${AGENTS_RETRIEVAL_RESULTS_LIMIT:-3}
+      AGENTS_RESPONSE_CHUNK_SIZE: ${AGENTS_RESPONSE_CHUNK_SIZE:-140}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      identity:
+        condition: service_started
+      chroma:
+        condition: service_started
+      litellm:
+        condition: service_started
+      mcp-proxy:
+        condition: service_started
+  app-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
