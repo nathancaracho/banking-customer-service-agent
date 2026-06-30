@@ -3,6 +3,8 @@
 Como banco, quero registrar ações relevantes do sistema de forma rastreável,
 para investigar incidentes e comprovar decisões críticas.
 
+Domínio principal: `audit`
+Projeto principal: `backend`
 Impacta: `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `PostgreSQL`, `RabbitMQ`
 

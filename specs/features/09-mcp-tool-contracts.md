@@ -3,6 +3,8 @@
 Como produto integrado a sistemas internos, quero contratos claros para as
 tools bancárias, para executar consultas e operações com previsibilidade.
 
+Domínio principal: `mcp_integration`
+Projeto principal: `agents`
 Impacta: `backend`, `agents`, `identity`
 Stack principal: `LangChain`, `AgentMiddleware`, `MCP`, `RabbitMQ`
 

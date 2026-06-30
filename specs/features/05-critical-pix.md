@@ -3,6 +3,8 @@
 Como usuário autenticado, quero realizar uma transferência PIX crítica com
 validações e confirmação reforçadas, para executar a operação com segurança.
 
+Domínio principal: `pix`
+Projeto principal: `agents`
 Impacta: `frontend`, `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `LangChain`, `AgentMiddleware`, `RabbitMQ`, `MCP`
 

@@ -4,6 +4,8 @@ Como usuário autenticado, quero continuar uma conversa com o agente sem repetir
 todo o contexto, recebendo respostas progressivas e estados claros durante o
 atendimento.
 
+Domínio principal: `chat`
+Projeto principal: `backend`
 Impacta: `frontend`, `backend`, `agents`
 Stack principal: `React`, `assistant-ui`, `FastAPI`, `RabbitMQ`, `PostgreSQL`, `SSE`
 

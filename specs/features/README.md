@@ -24,21 +24,20 @@ canônicas.
 
 ## Índice
 
-| Spec | Responsabilidade principal |
-| --- | --- |
-| [01 — Experiência do chat](01-chat-experience.md) | Chat, memória, SSE e estados da interface |
-| [02 — Resposta RAG](02-rag-response-contract.md) | Resposta fundamentada e citações |
-| [03 — Aumento de limite](03-credit-limit-increase.md) | Fluxo de consulta, elegibilidade, confirmação e execução |
-| [04 — Controle de acesso](04-authorization-access-control.md) | Autorização de dados próprios e de terceiros |
-| [05 — PIX crítico](05-critical-pix.md) | Autenticação adicional, confirmação e execução |
-| [06 — RBAC](06-rbac.md) | Perfis e matriz de permissões |
-| [07 — Auditoria](07-audit.md) | Eventos auditáveis e trilha de ações |
-| [08 — Observabilidade](08-observability.md) | Logs, métricas, traces e alertas |
-| [09 — Contratos MCP](09-mcp-tool-contracts.md) | Interfaces externas das ferramentas |
-| [10 — Segurança](10-security-guardrails.md) | Guardrails visíveis nas bordas do sistema |
-| [11 — Identity](11-identity-service.md) | Validação de contexto, resolução de roles e decisão de autorização |
-| [12 — File ingestion](12-file-ingestion.md) | Upload, parsing, chunking e indexação da KB |
-| [13 — Gestão da KB](13-knowledge-base-management.md) | Listagem, reprocessamento e ciclo de vida de documentos ingeridos |
+| Spec | Domínio principal | Projeto principal | Responsabilidade principal |
+| --- | --- | --- | --- |
+| [01 — Experiência do chat](01-chat-experience.md) | Chat | `backend` | Chat, memória, SSE e estados da interface |
+| [02 — Resposta RAG](02-rag-response-contract.md) | RAG | `agents` | Resposta fundamentada e citações |
+| [03 — Aumento de limite](03-credit-limit-increase.md) | Cartão | `agents` | Fluxo de consulta, elegibilidade, confirmação e execução |
+| [04 — Controle de acesso](04-authorization-access-control.md) | Autorização | `identity` | Autorização de dados próprios e de terceiros |
+| [05 — PIX crítico](05-critical-pix.md) | PIX | `agents` | Autenticação adicional, confirmação e execução |
+| [06 — RBAC](06-rbac.md) | Permissões | `identity` | Perfis e matriz de permissões |
+| [07 — Auditoria](07-audit.md) | Auditoria | `backend` | Eventos auditáveis e trilha de ações |
+| [08 — Observabilidade](08-observability.md) | Observabilidade | `backend` | Logs, métricas, traces e alertas |
+| [09 — Contratos MCP](09-mcp-tool-contracts.md) | Integração | `agents` | Interfaces externas das ferramentas |
+| [10 — Segurança](10-security-guardrails.md) | Segurança | `agents` | Guardrails visíveis nas bordas do sistema |
+| [11 — Identity](11-identity-service.md) | Identidade | `identity` | Validação de contexto, resolução de roles e decisão de autorização |
+| [12 — Ingestion e gestão da KB](12-file-ingestion.md) | Base de conhecimento | `backend` | Upload, parsing, indexação, ativação e ciclo de vida dos documentos da KB |
 
 ## Dependências
 
@@ -47,13 +46,11 @@ canônicas.
                       ├──> 03 Aumento de limite
                       └──> 05 PIX crítico
 
-12 File ingestion ─────┬──> 02 RAG
-13 Gestão da KB ───────┘
+12 Ingestion + Gestão KB ──> 02 RAG
 
 11 Identity ──────────┬──> 04 Controle de acesso
-                      ├──> 12 File ingestion
-06 RBAC ──────────────┼──> 13 Gestão da KB
-                      └──> 04 Controle de acesso
+                      ├──> 12 Ingestion + Gestão KB
+06 RBAC ──────────────└──> 04 Controle de acesso
 
 04 Controle de acesso ─┬──> 03 Aumento de limite ──> 09 MCP
 09 Contratos MCP ──────┘
@@ -70,7 +67,7 @@ Todas as features ───────> 10 Segurança
 
 1. Identity e RBAC.
 2. Controle de acesso e contratos MCP.
-3. File ingestion e gestão da KB.
+3. Ingestion e gestão da KB.
 4. Auditoria e observabilidade.
 5. Chat e streaming.
 6. Resposta RAG.

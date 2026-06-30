@@ -3,6 +3,8 @@
 Como banco, quero cercar o agente com proteções explícitas, para bloquear usos
 indevidos, reduzir vazamentos e garantir execução segura.
 
+Domínio principal: `security`
+Projeto principal: `agents`
 Impacta: `frontend`, `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `LangChain`, `AgentMiddleware`, `PostgreSQL`
 

@@ -3,6 +3,8 @@
 Como responsável pelo produto, quero que cada perfil tenha permissões claras e
 previsíveis, para garantir acesso mínimo necessário e governança do sistema.
 
+Domínio principal: `rbac`
+Projeto principal: `identity`
 Impacta: `frontend`, `backend`, `identity`
 Stack principal: `FastAPI`, `SQLAlchemy`, `PostgreSQL`
 

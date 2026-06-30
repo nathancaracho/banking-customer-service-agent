@@ -3,6 +3,8 @@
 Como usuário elegível, quero solicitar aumento de limite com transparência,
 confirmação e segurança, para concluir a operação com confiança.
 
+Domínio principal: `card_limit`
+Projeto principal: `agents`
 Impacta: `frontend`, `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `LangChain`, `AgentMiddleware`, `RabbitMQ`, `MCP`
 

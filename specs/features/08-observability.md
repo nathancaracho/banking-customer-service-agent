@@ -3,6 +3,8 @@
 Como time responsável pela plataforma, quero observar o fluxo ponta a ponta do
 chat e das operações, para diagnosticar falhas e demonstrar escalabilidade.
 
+Domínio principal: `observability`
+Projeto principal: `backend`
 Impacta: `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `RabbitMQ`, `LiteLLM`, `OpenTelemetry-compatible observability stack`
 

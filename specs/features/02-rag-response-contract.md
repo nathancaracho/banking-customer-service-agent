@@ -3,6 +3,8 @@
 Como usuário autenticado, quero receber respostas sobre o banco com base em
 fontes verificáveis, para confiar no atendimento do agente.
 
+Domínio principal: `rag`
+Projeto principal: `agents`
 Impacta: `backend`, `agents`
 Stack principal: `LangChain`, `LiteLLM`, `Chroma`, `RabbitMQ`
 

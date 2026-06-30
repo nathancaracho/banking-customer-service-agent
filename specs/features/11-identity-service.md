@@ -4,7 +4,9 @@ Como plataforma bancária, quero centralizar autenticação contextual, resoluç
 de roles e autorização de tools em um serviço único, para aplicar políticas de
 acesso de forma consistente em todo o sistema.
 
-Impacta: `frontend`, `backend`, `agents`, `identity`
+Domínio principal: `identity`
+Projeto principal: `identity`
+Impacta: `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `SQLAlchemy`, `PostgreSQL`, `AgentMiddleware`
 
 ## 1. Objetivo

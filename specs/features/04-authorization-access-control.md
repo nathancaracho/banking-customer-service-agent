@@ -3,6 +3,8 @@
 Como cliente ou colaborador autorizado, quero acessar somente os dados e
 operações compatíveis com meu perfil, para proteger informações sensíveis.
 
+Domínio principal: `authorization`
+Projeto principal: `identity`
 Impacta: `backend`, `agents`, `identity`
 Stack principal: `FastAPI`, `AgentMiddleware`, `PostgreSQL`, `MCP`
 
