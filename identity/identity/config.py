@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 
 
@@ -17,6 +18,7 @@ def _require_env(name: str) -> str:
     return value
 
 
+@lru_cache(maxsize=1)
 def load_settings() -> Settings:
     database_schema = os.getenv("IDENTITY_DATABASE_SCHEMA", "identity").strip()
 
