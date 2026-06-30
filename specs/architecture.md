@@ -11,12 +11,14 @@ Referências complementares:
 
 O sistema fornece um agente de atendimento bancário capaz de responder perguntas, consultar uma base de conhecimento e executar operações autorizadas.
 
-O monorepo contém quatro aplicações:
+O monorepo contém seis aplicações:
 
 - `frontend`: chat e telas administrativas;
 - `backend`: API, chats, memória, SSE e integração com as filas;
 - `agents`: workers que executam o `CustomerServiceAgent`;
-- `identity`: usuários, roles e autorização de ferramentas.
+- `identity`: usuários, roles e autorização de ferramentas;
+- `banking_api`: core bancário fake e stateful para desenvolvimento local;
+- `mcp_proxy`: tools MCP e adaptação HTTP para a Banking API.
 
 O backend publica solicitações em uma fila. Os workers processam essas solicitações e publicam a resposta em chunks. O backend consome os chunks e os envia ao frontend por Server-Sent Events (SSE).
 
@@ -34,6 +36,9 @@ backend: Backend {
 
 agents: Agents {
   customer_service: Customer Service Agent
+  authorization_middleware: Authorization Middleware
+
+  customer_service -> authorization_middleware: Tool intent
 }
 
 request_queue: Request Queue
@@ -41,14 +46,19 @@ reply_queue: Reply Queue
 
 litellm: LiteLLM
 identity: Identity
-mcp: MCP
+mcp_proxy: MCP Proxy {
+  tools: Tool Catalog
+  bank_client: Bank API Client
+
+  tools -> bank_client
+}
+bank_apis: Banking API (fake)
 database: PostgreSQL
 vector_db: Vector Database
 observability: Observability
 
 frontend -> backend.auth: HTTPS
-backend.auth -> identity: Validate auth context
-backend.auth -> backend.services
+backend.auth -> backend.services: Authenticated subject
 backend.services -> frontend: SSE
 
 backend.services -> request_queue: Publish
@@ -64,11 +74,14 @@ identity -> database: Users and roles
 
 agents.customer_service -> litellm
 agents.customer_service -> vector_db: Retrieve
-agents.customer_service -> identity: Authorize tool call via middleware
-agents.customer_service -> mcp: Execute authorized tool
+agents.authorization_middleware -> identity: Authorize tool call
+agents.authorization_middleware -> mcp_proxy.tools: Execute when allowed
+mcp_proxy.bank_client -> bank_apis: HTTPS
+bank_apis -> database: Banking state
 
 backend -> observability
 agents -> observability
+mcp_proxy -> observability
 ```
 
 ## 3. Componentes
@@ -162,6 +175,8 @@ Uma autorização considera o usuário, a role, a ferramenta, a ação, o recurs
 
 - `LiteLLM`: abstração de modelos, fallback, métricas de uso e suporte a modelos locais ou mocks.
 - `MCP`: ferramentas de consulta, operação bancária e operação crítica.
+- `MCP Proxy`: servidor FastMCP que traduz tools autorizadas para a Banking API.
+- `Banking API`: API fake stateful para perfil, saldo, limite e PIX.
 - `PostgreSQL`: chats, mensagens, checkpoints, usuários, roles e auditoria.
 - `Vector Database`: documentos e embeddings da base de conhecimento.
 - `Observability`: logs, métricas e traces do backend e dos workers.

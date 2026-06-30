@@ -4,9 +4,9 @@ Como produto integrado a sistemas internos, quero contratos claros para as
 tools bancárias, para executar consultas e operações com previsibilidade.
 
 Domínio principal: `mcp_integration`
-Projeto principal: `agents`
-Impacta: `backend`, `agents`, `identity`
-Stack principal: `LangChain`, `AgentMiddleware`, `MCP`, `RabbitMQ`
+Projeto principal: `mcp_proxy`
+Impacta: `agents`, `identity`, `mcp_proxy`, `banking_api`
+Stack principal: `FastMCP`, `HTTPX`, `Pydantic`
 
 ## 1. Objetivo
 
@@ -37,7 +37,7 @@ Esta feature não cobre:
 
 - `Customer Service Agent`;
 - `identity`;
-- servidor MCP;
+- MCP Proxy;
 - sistemas internos bancários;
 - backend, como consumidor indireto do resultado.
 
@@ -60,8 +60,8 @@ Esta feature não cobre:
 
 1. O agente identifica que precisa usar uma tool.
 2. O agente consulta `identity` com ação e recurso pretendidos.
-3. Se a decisão for `allow`, o agente chama a tool no MCP.
-4. O MCP retorna sucesso ou erro estruturado.
+3. Se a decisão for `allow`, o agente chama a tool no MCP Proxy.
+4. O MCP Proxy chama a Banking API e retorna sucesso ou erro estruturado.
 5. O agente publica a resposta apropriada na reply queue.
 6. O backend transmite os chunks e o encerramento ao frontend.
 

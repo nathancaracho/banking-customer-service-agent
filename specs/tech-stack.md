@@ -146,6 +146,52 @@ versionada do repositório no momento desta escrita.
 - reduz custo cognitivo no monorepo;
 - facilita compartilhar convenções de API, migrations e testes.
 
+### Banking API
+
+**Projeto:** `banking_api`
+
+**Bibliotecas atuais:**
+
+- `FastAPI`
+- `SQLAlchemy`
+- `Alembic`
+- `psycopg2`
+
+**Uso no projeto:**
+
+- simular perfil, saldo, limite de cartão e transferências PIX;
+- manter estado mutável para demonstrações e testes locais;
+- servir como sistema bancário interno consumido pelo MCP Proxy.
+
+**Por que esta stack:**
+
+- mantém a API fake pequena e explícita;
+- permite demonstrar mutações reais no PostgreSQL;
+- evita adicionar regras de negócio falsas dentro do Agent ou do MCP Proxy.
+
+### MCP Proxy
+
+**Projeto:** `mcp_proxy`
+
+**Bibliotecas atuais:**
+
+- `FastMCP`
+- `HTTPX`
+- `Pydantic`
+
+**Uso no projeto:**
+
+- expor as tools bancárias pelo protocolo MCP;
+- validar contratos de entrada das tools;
+- traduzir tool calls em chamadas HTTP para a `banking_api`;
+- normalizar falhas da Banking API.
+
+**Por que esta stack:**
+
+- atende explicitamente ao requisito de MCP do desafio;
+- mantém o Agent desacoplado dos contratos HTTP bancários;
+- permite escalar ou substituir o proxy sem alterar o Agent.
+
 ## Infraestrutura compartilhada
 
 ### PostgreSQL
@@ -217,6 +263,8 @@ versionada do repositório no momento desta escrita.
 | Chat, SSE e memória | `backend` | `FastAPI`, `SQLAlchemy`, `PostgreSQL`, `RabbitMQ`, `LiteLLM` |
 | Execução do agent | `agents` | `LangChain`, `langchain-openai`, `LiteLLM`, `RabbitMQ` |
 | Autorização e roles | `identity` | `FastAPI`, `SQLAlchemy`, `PostgreSQL` |
+| Core bancário fake | `banking_api` | `FastAPI`, `SQLAlchemy`, `PostgreSQL` |
+| Tools bancárias | `mcp_proxy` | `FastMCP`, `HTTPX`, `Pydantic` |
 | UI do chat e admin | `frontend` | `React`, `Vite`, `TypeScript`, `assistant-ui`, `shadcn` |
 | KB/RAG | `agents` + infra | `LangChain`, `Chroma`, `LiteLLM` |
 
