@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -59,3 +60,25 @@ class AuthorizationResponse(BaseModel):
     reason: str
     policy_version: str
     subject: Subject
+
+
+class AdminUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    display_name: str
+    is_active: bool
+    created_at: datetime
+    roles: list[str]
+
+
+class UserRoleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+
+
+class UpdateRolesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    roles: list[str]

@@ -121,3 +121,25 @@ class SqlAlchemyIdentityRepository:
     def record_decision(self, **decision: object) -> None:
         self.session.add(AuthorizationDecision(**decision))
         self.session.commit()
+
+    def list_all_users(self) -> list[User]:
+        return list(self.session.scalars(select(User).order_by(User.id)).all())
+
+    def get_user_with_roles(self, user_id: str) -> User | None:
+        return self.session.scalar(
+            select(User)
+            .options(selectinload(User.roles))
+            .where(User.id == user_id)
+        )
+
+    def get_role_by_name(self, name: str) -> Role | None:
+        return self.session.scalar(select(Role).where(Role.name == name))
+
+    def set_user_roles(self, user: User, role_names: list[str]) -> None:
+        roles = []
+        for name in role_names:
+            role = self.get_role_by_name(name)
+            if role is not None:
+                roles.append(role)
+        user.roles = roles
+        self.session.commit()
