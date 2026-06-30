@@ -23,6 +23,7 @@ export default defineConfig([
     files: [
       'src/components/assistant-ui/**/*.{ts,tsx}',
       'src/components/ui/**/*.{ts,tsx}',
+      'src/components/admin/**/*.{ts,tsx}',
     ],
     rules: {
       'react-hooks/refs': 'off',

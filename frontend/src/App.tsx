@@ -3,11 +3,27 @@ import {
   type AppendMessage,
   useExternalStoreRuntime,
 } from '@assistant-ui/react'
-import { BotIcon, LogOutIcon, MessageSquareIcon, PlusIcon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  BotIcon,
+  LogOutIcon,
+  MessageSquareIcon,
+  PlusIcon,
+  UsersIcon,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { createChat, getChat, listChats, login, streamMessage } from '@/api'
+import {
+  createChat,
+  getChat,
+  listChats,
+  login,
+  streamMessage,
+  confirmAction,
+} from '@/api'
 import { Thread } from '@/components/assistant-ui/thread'
+import { AdminUsersPage } from '@/components/admin/AdminUsersPage'
+import { KnowledgeBasePage } from '@/components/admin/KnowledgeBasePage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -160,10 +176,17 @@ function ChatWorkspace({
   session: Session
   onLogout: () => void
 }) {
+  const [activePage, setActivePage] = useState<'chat' | 'admin' | 'knowledge'>(
+    'chat',
+  )
   const [chats, setChats] = useState<Chat[]>([])
   const [activeChat, setActiveChat] = useState<ChatDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const isManagerOrAdmin = session.roles.some(
+    (role) => role === 'manager' || role === 'admin',
+  )
 
   const refreshChats = useCallback(async () => {
     const nextChats = await listChats(session.accessToken)
@@ -215,32 +238,66 @@ function ChatWorkspace({
           </div>
         </div>
         <Separator />
-        <div className="p-3">
-          <Button className="w-full justify-start gap-2" onClick={newChat}>
-            <PlusIcon className="size-4" />
-            Novo atendimento
+        <div className="space-y-1 p-3">
+          <Button
+            className="w-full justify-start gap-2"
+            onClick={() => setActivePage('chat')}
+            variant={activePage === 'chat' ? 'secondary' : 'ghost'}
+          >
+            <MessageSquareIcon className="size-4" />
+            Atendimento
           </Button>
-        </div>
-        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
-          {loading && (
-            <p className="px-2 py-4 text-sm text-muted-foreground">
-              Carregando conversas...
-            </p>
+          {isManagerOrAdmin && (
+            <>
+              <Button
+                className="w-full justify-start gap-2"
+                onClick={() => setActivePage('admin')}
+                variant={activePage === 'admin' ? 'secondary' : 'ghost'}
+              >
+                <UsersIcon className="size-4" />
+                Usuários
+              </Button>
+              <Button
+                className="w-full justify-start gap-2"
+                onClick={() => setActivePage('knowledge')}
+                variant={activePage === 'knowledge' ? 'secondary' : 'ghost'}
+              >
+                <BookOpenIcon className="size-4" />
+                Base de conhecimento
+              </Button>
+            </>
           )}
-          {chats.map((chat) => (
-            <Button
-              key={chat.id}
-              variant={activeChat?.id === chat.id ? 'secondary' : 'ghost'}
-              className="w-full justify-start gap-2"
-              onClick={() => openChat(chat.id)}
-            >
-              <MessageSquareIcon className="size-4" />
-              <span className="truncate">
-                Atendimento {chat.id.slice(0, 8)}
-              </span>
-            </Button>
-          ))}
-        </nav>
+        </div>
+        {activePage === 'chat' && (
+          <>
+            <div className="p-3">
+              <Button className="w-full justify-start gap-2" onClick={newChat}>
+                <PlusIcon className="size-4" />
+                Novo atendimento
+              </Button>
+            </div>
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+              {loading && (
+                <p className="px-2 py-4 text-sm text-muted-foreground">
+                  Carregando conversas...
+                </p>
+              )}
+              {chats.map((chat) => (
+                <Button
+                  key={chat.id}
+                  variant={activeChat?.id === chat.id ? 'secondary' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                  onClick={() => openChat(chat.id)}
+                >
+                  <MessageSquareIcon className="size-4" />
+                  <span className="truncate">
+                    Atendimento {chat.id.slice(0, 8)}
+                  </span>
+                </Button>
+              ))}
+            </nav>
+          </>
+        )}
         <Separator />
         <div className="p-3">
           <Button
@@ -253,8 +310,12 @@ function ChatWorkspace({
           </Button>
         </div>
       </aside>
-      <section className="min-w-0">
-        {error ? (
+      <section className="min-w-0 h-full">
+        {activePage === 'admin' ? (
+          <AdminUsersPage session={session} />
+        ) : activePage === 'knowledge' ? (
+          <KnowledgeBasePage session={session} />
+        ) : error ? (
           <div className="p-6 text-sm text-destructive">{error}</div>
         ) : activeChat ? (
           <ChatThread
@@ -307,6 +368,38 @@ function ChatThread({
     ),
   )
   const [isRunning, setIsRunning] = useState(false)
+  const [pendingCheckpoint, setPendingCheckpoint] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+
+  const focusComposer = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>('[aria-label="Message input"]')
+        ?.focus()
+    })
+  }, [])
+
+  const handleConfirm = useCallback(
+    async (confirmed: boolean) => {
+      if (!pendingCheckpoint || confirming) return
+      setConfirming(true)
+      try {
+        await confirmAction(
+          session.accessToken,
+          chat.id,
+          pendingCheckpoint,
+          confirmed,
+        )
+        setPendingCheckpoint(null)
+        void onReload().catch(() => {})
+      } catch {
+        setPendingCheckpoint(null)
+      } finally {
+        setConfirming(false)
+      }
+    },
+    [chat.id, confirming, onReload, pendingCheckpoint, session.accessToken],
+  )
 
   const onNew = useCallback(
     async (message: AppendMessage) => {
@@ -363,6 +456,18 @@ function ChatThread({
                   }
                 }
 
+                if (event.type === 'confirmation_required') {
+                  const checkpointId = event.payload.checkpoint_id
+                  if (checkpointId) {
+                    setPendingCheckpoint(checkpointId)
+                  }
+                  return {
+                    ...item,
+                    content: event.payload.content ?? item.content,
+                    status: { type: 'complete', reason: 'stop' },
+                  }
+                }
+
                 if (event.type === 'failed') {
                   return {
                     ...item,
@@ -401,9 +506,10 @@ function ChatThread({
         )
       } finally {
         setIsRunning(false)
+        focusComposer()
       }
     },
-    [chat.id, isRunning, onReload, session.accessToken],
+    [chat.id, focusComposer, isRunning, onReload, session.accessToken],
   )
 
   const runtime = useExternalStoreRuntime({
@@ -447,6 +553,30 @@ function ChatThread({
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Thread components={{ Welcome: welcome }} />
+      {pendingCheckpoint && (
+        <div className="sticky bottom-0 border-t bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              Operação pendente de confirmação:
+            </span>
+            <Button
+              size="sm"
+              onClick={() => handleConfirm(true)}
+              disabled={confirming}
+            >
+              {confirming ? 'Confirmando...' : 'Confirmar'}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleConfirm(false)}
+              disabled={confirming}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
     </AssistantRuntimeProvider>
   )
 }
