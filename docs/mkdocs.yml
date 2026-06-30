@@ -1,1 +1,27 @@
-site_name: My Docs
+site_name: Banking Customer Service Agent
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Agents: agents.md
+  - Backend API: backend.md
+  - Identity: identity.md
+  - LiteLLM: litellm.md
+  - Deployment: deployment.md
+  - Development: development.md
+plugins:
+  - search
+  - d2
+  - panzoom:
+      key: ctrl
+      full_screen: true
+      always_show_hint: false
+      hint_location: top
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: amber
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy

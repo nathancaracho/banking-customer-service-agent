@@ -22,6 +22,8 @@ Esta feature cobre:
 - definição de permissões por capacidade de negócio;
 - decisão de autorização feita pelo serviço `identity`;
 - uso da decisão de autorização pelo `backend` e pelo `Customer Service Agent`;
+- tela administrativa de consulta de usuários com visão resumida de saldo e
+  limite;
 - negação por padrão quando não houver permissão explícita.
 
 ## 3. Fora de escopo
@@ -77,6 +79,9 @@ Esta feature não cobre:
 - `admin` acessa função administrativa permitida pela policy.
 - `customer` acessa apenas os próprios dados e operações associadas à própria conta.
 - o backend pode consultar `identity` para rotas administrativas fora do chat.
+- gerente e admin conseguem consultar a configuração financeira resumida do
+  usuário na área administrativa;
+- apenas `admin` pode alterar roles; `manager` visualiza, mas não edita.
 
 ## 9. Fluxos de erro
 

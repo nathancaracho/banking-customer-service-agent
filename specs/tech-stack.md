@@ -64,6 +64,9 @@ versionada do repositório no momento desta escrita.
 - `sqlalchemy`
 - `alembic`
 - `asyncpg`
+- `langchain-text-splitters`
+- `langchain-chroma`
+- `langchain-openai`
 - `pytest`
 
 **Uso no projeto:**
@@ -72,6 +75,11 @@ versionada do repositório no momento desta escrita.
 - `SQLAlchemy` modela chats, mensagens, resumos e metadados.
 - `Alembic` versiona o schema do backend.
 - `asyncpg` é o driver PostgreSQL assíncrono.
+- `langchain-text-splitters` aplica o chunking da base de conhecimento.
+- `langchain-chroma` integra a base vetorial ao Chroma por meio do client
+  oficial.
+- `langchain-openai` gera embeddings pelo endpoint OpenAI-compatible do
+  `LiteLLM`.
 - `pytest` cobre testes do projeto Python.
 
 **Por que esta stack:**
@@ -94,28 +102,35 @@ versionada do repositório no momento desta escrita.
 
 **Bibliotecas atuais:**
 
+- `aio-pika`
+- `fastmcp`
+- `httpx`
 - `langchain`
 - `langchain-openai`
+- `pydantic-settings`
 
 **Uso no projeto:**
 
+- `aio-pika` conecta o worker às filas `request_queue` e `reply_queue`.
+- `FastMCP` fornece o cliente das tools expostas pelo `mcp_proxy`.
+- `HTTPX` integra o Agent ao `Identity` e ao Chroma HTTP API.
 - `LangChain` sustenta o `CustomerServiceAgent`.
 - `langchain-openai` permite falar com um endpoint compatível com OpenAI,
   incluindo o gateway do `LiteLLM`.
+- `pydantic-settings` centraliza a carga de configuração do worker.
 
 **Por que esta stack:**
 
 - acelera a construção do agent sem obrigar um framework pesado de multi-agent;
 - suporta model providers distintos via interface compatível;
 - permite middleware para preocupações transversais, como autorização e HIL.
+- mantém a integração com filas, Identity e MCP explícita e pequena.
 
 **Dependências técnicas planejadas:**
 
-- middleware do `LangChain` para autorização antes de tool call;
-- integração com `LiteLLM` como gateway de modelos;
-- checkpointer compatível com fluxo de confirmação humana;
-- cliente RabbitMQ para consumo da `request_queue` e publicação na
-  `reply_queue`.
+- middleware explícito do agent para autorização antes de tool call;
+- integração com `LiteLLM` como gateway de embeddings e modelos;
+- checkpointer compatível com fluxo de confirmação humana.
 
 ### Identity
 
@@ -255,6 +270,23 @@ versionada do repositório no momento desta escrita.
 - reduz acoplamento a um provider específico;
 - facilita demo com provider pago, local ou mock;
 - permite manter uma interface unificada para modelos.
+
+### SigNoz / OpenTelemetry
+
+**Definição atual:** `observability/`, `docker-compose.yml`, `observability/docker-compose.signoz.yaml`
+
+**Uso:**
+
+- coleta de traces, métricas e logs via OTLP gRPC;
+- UI em `http://localhost:3301` para inspeção ponta a ponta;
+- pacote compartilhado `observability` instrumentando `backend`, `agents`, `identity` e `mcp_proxy`;
+- propagação de contexto W3C em mensagens RabbitMQ.
+
+**Por que usar:**
+
+- atende o requisito de observabilidade do desafio com stack compatível com OpenTelemetry;
+- permite correlacionar HTTP, SSE, filas, autorização e tools MCP;
+- mantém a instrumentação centralizada e reutilizável entre serviços Python.
 
 ## Mapeamento rápido por responsabilidade
 

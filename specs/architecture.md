@@ -22,6 +22,10 @@ O monorepo contém seis aplicações:
 
 O backend publica solicitações em uma fila. Os workers processam essas solicitações e publicam a resposta em chunks. O backend consome os chunks e os envia ao frontend por Server-Sent Events (SSE).
 
+Funcionalidades com domínio próprio são organizadas em slices verticais dentro
+do projeto. A gestão da base de conhecimento fica em `backend/backend/knowledge/`,
+reunindo rotas, schemas, serviço, persistência, models e adapters externos.
+
 ## 2. Diagrama
 
 ```d2

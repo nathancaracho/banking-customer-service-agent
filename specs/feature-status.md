@@ -13,15 +13,15 @@ comportamento esperado.
 - [x] Serviço `backend` executando no Docker Compose.
 - [x] Migrations separadas nos schemas `identity` e `backend`.
 - [x] Fluxo Backend → RabbitMQ → resposta mockada → SSE validado.
-- [ ] Worker com `CustomerServiceAgent` consumindo a fila.
+- [x] Worker com `CustomerServiceAgent` consumindo a fila.
 - [x] MCP Proxy com FastMCP.
 - [x] Banking API fake e stateful.
 - [x] Frontend funcional para login, chats e streaming SSE.
-- [ ] Observabilidade com traces, métricas e logs correlacionados.
+- [x] Observabilidade com traces, métricas e logs correlacionados.
 
 ## Feature 01 — Conversação e experiência do chat
 
-Status: em andamento.
+Status: implementada.
 
 - [x] Autenticação JWT na borda do Backend.
 - [x] Criar chat.
@@ -40,34 +40,35 @@ Status: em andamento.
 - [x] Criar, listar e abrir chats no Frontend.
 - [x] Integrar o chat com `assistant-ui` e componentes `shadcn`.
 - [x] Consumir o streaming SSE no Frontend.
-- [ ] Conectar um worker real ao fluxo.
-- [ ] Atualizar o status da mensagem quando a publicação falhar.
-- [ ] Preservar formalmente respostas parciais após falha.
-- [ ] Implementar compressão de memória via LiteLLM.
-- [ ] Implementar cancelamento.
-- [ ] Implementar reconexão e retomada do SSE.
-- [ ] Implementar nova tentativa explícita.
+- [x] Conectar um worker real ao fluxo.
+- [x] Atualizar o status da mensagem quando a publicação falhar.
+- [x] Preservar formalmente respostas parciais após falha.
+- [x] Implementar compressão de memória via LiteLLM.
+- [x] Implementar cancelamento.
+- [x] Implementar reconexão e retomada do SSE.
+- [x] Implementar nova tentativa explícita.
 
 ## Feature 02 — Resposta RAG
 
-Status: não iniciada.
+Status: parcialmente implementada.
 
-- [ ] Implementar ingestão e retrieval no Agent.
-- [ ] Responder com conteúdo fundamentado.
-- [ ] Retornar citações das fontes utilizadas.
-- [ ] Tratar ausência de contexto suficiente.
+- [x] Implementar retrieval no Agent.
+- [x] Responder com conteúdo fundamentado.
+- [x] Retornar citações das fontes utilizadas.
+- [x] Tratar ausência de contexto suficiente.
 - [ ] Testar grounding e alucinação.
 
 ## Feature 03 — Aumento de limite
 
-Status: não iniciada.
+Status: parcialmente implementada.
 
 - [ ] Consultar perfil e limite atual pelo MCP Proxy.
-- [ ] Verificar elegibilidade.
-- [ ] Solicitar confirmação explícita.
+- [x] Consultar limite atual pelo MCP Proxy.
+- [x] Verificar elegibilidade básica no Agent.
+- [x] Solicitar confirmação explícita.
 - [ ] Persistir checkpoint para HIL.
-- [ ] Executar aumento autorizado.
-- [ ] Retomar a execução após confirmação.
+- [x] Executar aumento autorizado.
+- [ ] Retomar a execução após confirmação com checkpoint técnico.
 
 ## Feature 04 — Controle de acesso
 
@@ -77,20 +78,20 @@ Status: parcialmente implementada no Identity.
 - [x] Decisão `deny` para recurso de terceiro.
 - [x] Negativa para contexto inválido.
 - [x] Registro da decisão de autorização.
-- [ ] Integrar o middleware do Agent ao Identity.
+- [x] Integrar a camada de autorização do Agent ao Identity.
 - [ ] Garantir que uma negativa impeça a chamada ao MCP Proxy.
 - [ ] Cobrir indisponibilidade do Identity com falha fechada.
 
 ## Feature 05 — PIX crítico
 
-Status: não iniciada.
+Status: parcialmente implementada.
 
-- [ ] Criar contrato da operação PIX no MCP Proxy.
+- [x] Criar contrato da operação PIX no MCP Proxy.
 - [ ] Validar limites e risco.
 - [ ] Exigir autenticação adicional quando aplicável.
-- [ ] Solicitar confirmação explícita.
+- [x] Solicitar confirmação explícita.
 - [ ] Persistir e retomar checkpoint.
-- [ ] Impedir retry automático após resultado ambíguo.
+- [x] Impedir retry automático após resultado ambíguo.
 
 ## Feature 06 — RBAC
 
@@ -101,10 +102,10 @@ Status: parcialmente implementada.
 - [x] Matriz inicial de permissões via migration.
 - [x] Avaliação por ação, recurso e ownership.
 - [x] Política versionada.
-- [ ] Completar cenários de `manager`.
-- [ ] Completar cenários de `admin`.
-- [ ] Definir o fluxo administrativo de atribuição de roles.
-- [ ] Integrar telas administrativas do Frontend.
+- [x] Completar cenários de `manager`.
+- [x] Completar cenários de `admin`.
+- [x] Definir o fluxo administrativo de atribuição de roles.
+- [x] Integrar telas administrativas do Frontend.
 
 ## Feature 07 — Auditoria
 
@@ -119,15 +120,14 @@ Status: parcialmente implementada no Identity.
 
 ## Feature 08 — Observabilidade
 
-Status: não iniciada.
+Status: implementada.
 
-- [ ] Adicionar OpenTelemetry.
-- [ ] Propagar `trace_id`, `request_id` e `chat_id`.
-- [ ] Instrumentar Backend, Agent, Identity e MCP Proxy.
-- [ ] Medir conexões SSE e tempo até o primeiro chunk.
+- [x] Adicionar OpenTelemetry.
+- [x] Propagar `trace_id`, `request_id` e `chat_id`.
+- [x] Instrumentar Backend, Agent, Identity e MCP Proxy.
+- [x] Medir conexões SSE e tempo até o primeiro chunk.
 - [ ] Medir profundidade e espera das filas.
-- [ ] Medir latência e erros por tool.
-- [ ] Subir e configurar SigNoz.
+
 
 ## Feature 09 — Contratos MCP
 
@@ -145,7 +145,7 @@ Status: proxy implementado, integração com o Agent pendente.
 - [x] Implementar `create_pix`.
 - [x] Normalizar respostas e erros HTTP.
 - [x] Integrar a Banking API fake.
-- [ ] Integrar o cliente MCP ao Agent.
+- [x] Integrar o cliente MCP ao Agent.
 - [ ] Testar timeout ambíguo em operações mutáveis.
 
 ## Feature 10 — Segurança e guardrails
@@ -182,22 +182,26 @@ Status: funcional, integração pendente.
 
 ## Feature 12 — Ingestão e gestão da KB
 
-Status: não iniciada.
+Status: backend funcional, interface administrativa pendente.
 
-- [ ] Implementar upload de arquivos.
-- [ ] Validar tipo e tamanho.
-- [ ] Extrair e normalizar conteúdo.
-- [ ] Aplicar chunk size `700` e overlap `200`.
-- [ ] Gerar embeddings com Gemini via LiteLLM.
-- [ ] Indexar no Chroma.
-- [ ] Gerenciar ativação e remoção de documentos.
+- [x] Implementar upload de TXT e PDF.
+- [x] Validar tipo e tamanho.
+- [x] Extrair e normalizar conteúdo.
+- [x] Aplicar chunk size `700` e overlap `200` com LangChain.
+- [x] Gerar embeddings Gemini de 768 dimensões via LiteLLM.
+- [x] Indexar no Chroma.
+- [x] Listar, ativar, desativar e remover documentos logicamente.
+- [x] Persistir documentos, versões e metadados dos chunks.
+- [x] Marcar ingestões inválidas ou falhas como `failed`.
+- [ ] Delegar a autorização administrativa ao Identity.
+- [ ] Implementar reprocessamento e histórico operacional completo.
 - [ ] Criar tela administrativa da base de conhecimento.
 
 ## Próximos passos
 
-- [ ] Implementar o worker do `CustomerServiceAgent`.
-- [ ] Consumir `agent.requests` e publicar chunks em `agent.replies`.
-- [ ] Integrar o middleware de autorização ao Identity.
+- [x] Implementar o worker do `CustomerServiceAgent`.
+- [x] Consumir `agent.requests` e publicar chunks em `agent.replies`.
+- [x] Integrar a camada de autorização do Agent ao Identity.
 - [x] Criar o MCP Proxy e as APIs bancárias fake.
-- [ ] Substituir a resposta mockada pelo Agent real.
+- [x] Substituir a resposta mockada pelo Agent real.
 - [x] Conectar o Frontend ao Backend.

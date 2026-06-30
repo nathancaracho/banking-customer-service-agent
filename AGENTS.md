@@ -201,3 +201,4 @@ identity/
 ## Commit Rules
 
 - **Rodar testes antes de todo commit**: Execute o comando de testes apropriado para a stack do projeto (ex: `npm test`, `uv run pytest`, `pnpm test`, `go test ./...`, etc.) para garantir que todos os testes passem antes de realizar um commit.
+- **Reiniciar e validar o serviço afetado**: depois de qualquer mudança em runtime, reinicie o serviço correspondente no `docker-compose.yml` e teste o fluxo impactado antes de considerar a tarefa concluída.
