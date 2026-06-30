@@ -16,6 +16,14 @@ class Settings:
     recent_messages_limit: int
     frontend_origin: str
     demo_password: str
+    litellm_url: str
+    litellm_api_key: str
+    litellm_model: str
+    embedding_model: str
+    chroma_url: str
+    chroma_collection: str
+    kb_max_file_size_bytes: int
+    banking_api_url: str
 
 
 def _require_env(name: str) -> str:
@@ -46,4 +54,16 @@ def load_settings() -> Settings:
         recent_messages_limit=int(os.getenv("BACKEND_RECENT_MESSAGES_LIMIT", "20")),
         frontend_origin=_require_env("BACKEND_FRONTEND_ORIGIN"),
         demo_password=_require_env("BACKEND_DEMO_PASSWORD"),
+        litellm_url=_require_env("BACKEND_LITELLM_URL").rstrip("/"),
+        litellm_api_key=_require_env("LITELLM_MASTER_KEY"),
+        litellm_model=_require_env("BACKEND_LITELLM_MODEL"),
+        embedding_model=_require_env("BACKEND_EMBEDDING_MODEL"),
+        chroma_url=_require_env("BACKEND_CHROMA_URL").rstrip("/"),
+        chroma_collection=_require_env("BACKEND_CHROMA_COLLECTION"),
+        kb_max_file_size_bytes=int(
+            _require_env("BACKEND_KB_MAX_FILE_SIZE_BYTES")
+        ),
+        banking_api_url=os.getenv("BACKEND_BANKING_API_URL", "http://banking-api:8300")
+        .strip()
+        .rstrip("/"),
     )

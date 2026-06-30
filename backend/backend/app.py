@@ -1,14 +1,19 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
+from decimal import Decimal
 from uuid import uuid4
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from observability import ChatMetrics, get_tracer, instrument_fastapi, log_event, setup_telemetry
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
 from .auth import (
     AuthenticationError,
@@ -20,6 +25,9 @@ from .auth import (
 from .broker import RabbitBroker
 from .config import Settings, load_settings
 from .database import create_session_factory
+from .knowledge.routes import create_knowledge_router
+from .memory import MemoryCompressor
+from .rate_limit import RateLimitMiddleware
 from .repository import (
     create_chat,
     create_message,
@@ -27,16 +35,20 @@ from .repository import (
     get_chat_memory,
     list_chats,
 )
+from observability import get_audit_buffer
 from .schemas import (
     ChatDetailResponse,
     ChatResponse,
     LoginRequest,
     LoginResponse,
     MessageCreate,
+    UserFinancialSummaryResponse,
 )
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+_tracer = get_tracer("backend.chat")
+_chat_metrics = ChatMetrics()
 
 
 async def _get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
@@ -69,6 +81,14 @@ def _get_current_user(
         ) from error
 
 
+def _require_manager_or_admin(current_user: CurrentUser) -> None:
+    if "manager" not in current_user.roles and "admin" not in current_user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
+
 def create_app(
     settings: Settings | None = None,
     broker: RabbitBroker | None = None,
@@ -84,6 +104,7 @@ def create_app(
         resolved_settings.reply_queue,
         resolved_settings.stream_timeout_seconds,
     )
+    setup_telemetry("backend", sqlalchemy_engines=[engine])
 
     @asynccontextmanager
     async def _lifespan(_app: FastAPI):
@@ -93,21 +114,101 @@ def create_app(
         await engine.dispose()
 
     app = FastAPI(title="Backend Service", lifespan=_lifespan)
+    instrument_fastapi(app)
     app.state.settings = resolved_settings
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.broker = resolved_broker
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[resolved_settings.frontend_origin],
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    app.add_middleware(RateLimitMiddleware)
+    app.include_router(
+        create_knowledge_router(
+            resolved_settings,
+            _get_current_user,
+            _get_session,
+        )
     )
 
     @app.get("/health")
     async def _health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/v1/admin/audit")
+    async def _audit_query(
+        category: str | None = None,
+        actor_id: str | None = None,
+        action: str | None = None,
+        limit: int = 100,
+        current_user: CurrentUser = Depends(_get_current_user),
+    ) -> list[dict[str, str | None]]:
+        if "admin" not in current_user.roles and "manager" not in current_user.roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        buffer = get_audit_buffer()
+        return buffer.query(
+            category=category,
+            actor_id=actor_id,
+            action=action,
+            limit=min(limit, 500),
+        )
+
+    @app.get(
+        "/v1/admin/users/{user_id}/financial-summary",
+        response_model=UserFinancialSummaryResponse,
+    )
+    async def _user_financial_summary(
+        user_id: str,
+        current_user: CurrentUser = Depends(_get_current_user),
+    ) -> UserFinancialSummaryResponse:
+        _require_manager_or_admin(current_user)
+
+        async with httpx.AsyncClient(
+            base_url=resolved_settings.banking_api_url,
+            timeout=10,
+        ) as client:
+            profile_response, balance_response, limit_response = await asyncio.gather(
+                client.get(f"/v1/customers/{user_id}/profile"),
+                client.get(f"/v1/customers/{user_id}/balance"),
+                client.get(f"/v1/customers/{user_id}/card-limit"),
+            )
+
+        for response in (profile_response, balance_response, limit_response):
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="Customer not found")
+            response.raise_for_status()
+
+        profile = profile_response.json()
+        balance = Decimal(str(balance_response.json()["balance"]))
+        current_limit = Decimal(str(limit_response.json()["current_limit"]))
+        max_eligible_limit = (current_limit * Decimal("1.5")).quantize(
+            Decimal("0.01")
+        )
+        missing_to_max_eligible = (max_eligible_limit - current_limit).quantize(
+            Decimal("0.01")
+        )
+
+        return UserFinancialSummaryResponse(
+            user_id=user_id,
+            display_name=str(profile["display_name"]),
+            segment=str(profile["segment"]),
+            credit_score=int(profile["credit_score"]),
+            balance=f"{balance:.2f}",
+            current_limit=f"{current_limit:.2f}",
+            max_eligible_limit=f"{max_eligible_limit:.2f}",
+            missing_to_max_eligible=f"{missing_to_max_eligible:.2f}",
+            increase_instructions=(
+                "O gerente pode solicitar um aumento pelo fluxo de atendimento "
+                "e o admin pode acompanhar a trilha de auditoria."
+            ),
+        )
 
     @app.post("/v1/auth/login", response_model=LoginResponse)
     async def _login(payload: LoginRequest) -> LoginResponse:
@@ -217,51 +318,140 @@ def create_app(
             chunks: list[str] = []
             pending_chunks: dict[int, dict] = {}
             next_sequence = 1
+            completed = False
+            final_status = "completed"
 
-            async for event in request.app.state.broker.stream(agent_request):
-                if event.get("type") == "chunk":
-                    sequence = int(event["sequence"])
+            _chat_metrics.start_request()
+            log_event(
+                "backend.chat",
+                "chat_request_started",
+                request_id=request_id,
+                chat_id=chat.id,
+                user_id=current_user.user_id,
+            )
 
-                    if sequence < next_sequence:
-                        continue
+            with _tracer.start_as_current_span("backend.chat.stream") as span:
+                span.set_attribute("chat.id", chat.id)
+                span.set_attribute("request.id", request_id)
+                span.set_attribute("user.id", current_user.user_id)
 
-                    pending_chunks[sequence] = event
+                try:
+                    async for event in request.app.state.broker.stream(agent_request):
+                        if await request.is_disconnected():
+                            final_status = "disconnected"
+                            break
 
-                    while next_sequence in pending_chunks:
-                        chunk_event = pending_chunks.pop(next_sequence)
-                        chunks.append(
-                            str(chunk_event.get("payload", {}).get("content", ""))
-                        )
-                        yield f"data: {json.dumps(chunk_event)}\n\n"
-                        next_sequence += 1
+                        if event.get("type") == "chunk":
+                            sequence = int(event["sequence"])
 
-                    continue
+                            if sequence < next_sequence:
+                                continue
 
-                if event.get("type") == "completed":
-                    for sequence in sorted(pending_chunks):
-                        chunk_event = pending_chunks[sequence]
-                        chunks.append(
-                            str(chunk_event.get("payload", {}).get("content", ""))
-                        )
-                        yield f"data: {json.dumps(chunk_event)}\n\n"
+                            pending_chunks[sequence] = event
 
-                    final_content = str(
-                        event.get("payload", {}).get("content") or "".join(chunks)
+                            while next_sequence in pending_chunks:
+                                chunk_event = pending_chunks.pop(next_sequence)
+                                chunks.append(
+                                    str(
+                                        chunk_event.get("payload", {}).get(
+                                            "content", ""
+                                        )
+                                    )
+                                )
+                                _chat_metrics.record_first_chunk()
+                                yield f"data: {json.dumps(chunk_event)}\n\n"
+                                next_sequence += 1
+
+                            continue
+
+                        if event.get("type") in (
+                            "completed",
+                            "confirmation_required",
+                            "failed",
+                        ):
+                            completed = True
+                            final_status = str(event.get("type"))
+                            for sequence in sorted(pending_chunks):
+                                chunk_event = pending_chunks[sequence]
+                                chunks.append(
+                                    str(
+                                        chunk_event.get("payload", {}).get(
+                                            "content", ""
+                                        )
+                                    )
+                                )
+                                yield f"data: {json.dumps(chunk_event)}\n\n"
+
+                            if event.get("type") == "failed":
+                                final_content = (
+                                    "Ocorreu um erro no processamento da sua "
+                                    "mensagem. Por favor, tente novamente."
+                                )
+                            else:
+                                final_content = str(
+                                    event.get("payload", {}).get("content")
+                                    or "".join(chunks)
+                                )
+
+                            await create_message(
+                                session,
+                                chat,
+                                role="assistant",
+                                content=final_content,
+                                status=event.get("type"),
+                            )
+
+                            yield f"data: {json.dumps(event)}\n\n"
+                            break
+                except asyncio.CancelledError:
+                    final_status = "cancelled"
+                finally:
+                    _chat_metrics.finish(status=final_status)
+                    log_event(
+                        "backend.chat",
+                        "chat_request_finished",
+                        request_id=request_id,
+                        chat_id=chat.id,
+                        status=final_status,
                     )
-                    await create_message(
-                        session,
-                        chat,
-                        role="assistant",
-                        content=final_content,
-                        status="completed",
-                    )
 
-                yield f"data: {json.dumps(event)}\n\n"
+                    if not completed and chunks:
+                        try:
+
+                            async def _save_partial() -> None:
+                                async with request.app.state.session_factory() as s:
+                                    partial_chat = await get_chat(
+                                        s, chat_id, current_user.user_id
+                                    )
+                                    if partial_chat:
+                                        await create_message(
+                                            s,
+                                            partial_chat,
+                                            "assistant",
+                                            "".join(chunks),
+                                            "interrupted",
+                                        )
+
+                            asyncio.create_task(_save_partial())
+                        except Exception:
+                            pass
+
+        async def _compress_memory_task() -> None:
+            compressor = MemoryCompressor(resolved_settings)
+            async with request.app.state.session_factory() as bg_session:
+                bg_chat = await get_chat(bg_session, chat_id, current_user.user_id)
+                if bg_chat:
+                    await compressor.compress_if_needed(
+                        bg_session,
+                        bg_chat,
+                        resolved_settings.recent_messages_limit,
+                    )
 
         return StreamingResponse(
             _event_stream(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache"},
+            background=BackgroundTask(_compress_memory_task),
         )
 
     return app

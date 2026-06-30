@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 import aio_pika
+from observability import get_tracer, inject_headers, log_event
 from aio_pika.abc import (
     AbstractChannel,
     AbstractIncomingMessage,
@@ -27,6 +28,7 @@ class RabbitBroker:
         self._channel: AbstractChannel | None = None
         self._request_queue: aio_pika.abc.AbstractQueue | None = None
         self._pending: dict[str, asyncio.Queue[dict[str, Any]]] = {}
+        self._tracer = get_tracer("backend.broker")
 
     async def start(self) -> None:
         self._connection = await aio_pika.connect_robust(self._url)
@@ -58,15 +60,26 @@ class RabbitBroker:
         self._pending[request_id] = events
 
         try:
-            await self._channel.default_exchange.publish(
-                aio_pika.Message(
-                    body=json.dumps(request).encode(),
-                    content_type="application/json",
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                    correlation_id=request_id,
-                ),
-                routing_key=self._request_queue.name,
-            )
+            with self._tracer.start_as_current_span("backend.broker.publish_request") as span:
+                span.set_attribute("request.id", request_id)
+                span.set_attribute("chat.id", str(request["chat_id"]))
+                headers = inject_headers()
+                await self._channel.default_exchange.publish(
+                    aio_pika.Message(
+                        body=json.dumps(request).encode(),
+                        content_type="application/json",
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                        correlation_id=request_id,
+                        headers=headers,
+                    ),
+                    routing_key=self._request_queue.name,
+                )
+                log_event(
+                    "backend.broker",
+                    "agent_request_published",
+                    request_id=request_id,
+                    chat_id=str(request["chat_id"]),
+                )
 
             while True:
                 event = await asyncio.wait_for(
@@ -75,7 +88,7 @@ class RabbitBroker:
                 )
                 yield event
 
-                if event.get("type") in {"completed", "failed"}:
+                if event.get("type") in {"completed", "failed", "confirmation_required"}:
                     return
         except asyncio.TimeoutError:
             yield {
@@ -95,4 +108,27 @@ class RabbitBroker:
             pending = self._pending.get(request_id)
 
             if pending is not None:
+                log_event(
+                    "backend.broker",
+                    "agent_reply_received",
+                    request_id=request_id,
+                    chat_id=str(event.get("chat_id", "")),
+                    event_type=str(event.get("type", "")),
+                    sequence=int(event.get("sequence", 0)),
+                )
                 await pending.put(event)
+
+    async def publish(self, request: dict[str, Any]) -> None:
+        if self._channel is None or self._request_queue is None:
+            raise RuntimeError("RabbitMQ broker is not started")
+
+        request_id = str(request["request_id"])
+        await self._channel.default_exchange.publish(
+            aio_pika.Message(
+                body=json.dumps(request).encode(),
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                correlation_id=request_id,
+            ),
+            routing_key=self._request_queue.name,
+        )

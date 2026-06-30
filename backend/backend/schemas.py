@@ -41,3 +41,22 @@ class ChatResponse(BaseModel):
 
 class ChatDetailResponse(ChatResponse):
     messages: list[MessageResponse]
+
+
+class ConfirmRequest(BaseModel):
+    checkpoint_id: str = Field(min_length=1, max_length=36)
+    confirmed: bool
+
+
+class UserFinancialSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str
+    display_name: str
+    segment: str
+    credit_score: int
+    balance: str
+    current_limit: str
+    max_eligible_limit: str
+    missing_to_max_eligible: str
+    increase_instructions: str

@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from backend import models
+from backend.knowledge import models as knowledge_models
 from backend.database import Base
 
 

@@ -11,6 +11,13 @@ class BackendConfigTestCase(unittest.TestCase):
         os.environ.pop("BACKEND_RABBITMQ_URL", None)
         os.environ.pop("BACKEND_FRONTEND_ORIGIN", None)
         os.environ.pop("BACKEND_DEMO_PASSWORD", None)
+        os.environ.pop("BACKEND_LITELLM_URL", None)
+        os.environ.pop("BACKEND_LITELLM_MODEL", None)
+        os.environ.pop("LITELLM_MASTER_KEY", None)
+        os.environ.pop("BACKEND_EMBEDDING_MODEL", None)
+        os.environ.pop("BACKEND_CHROMA_URL", None)
+        os.environ.pop("BACKEND_CHROMA_COLLECTION", None)
+        os.environ.pop("BACKEND_KB_MAX_FILE_SIZE_BYTES", None)
 
     def test_requires_database_url_from_env(self) -> None:
         original_database_url = os.environ.pop("BACKEND_DATABASE_URL", None)
@@ -31,6 +38,13 @@ class BackendConfigTestCase(unittest.TestCase):
         os.environ["BACKEND_RABBITMQ_URL"] = "amqp://app:app@rabbitmq:5672/app"
         os.environ["BACKEND_FRONTEND_ORIGIN"] = "http://localhost:5173"
         os.environ["BACKEND_DEMO_PASSWORD"] = "demo"
+        os.environ["BACKEND_LITELLM_URL"] = "http://litellm:4000"
+        os.environ["BACKEND_LITELLM_MODEL"] = "openai/gpt-4o-mini"
+        os.environ["LITELLM_MASTER_KEY"] = "sk-test"
+        os.environ["BACKEND_EMBEDDING_MODEL"] = "kb-embedding"
+        os.environ["BACKEND_CHROMA_URL"] = "http://chroma:8000"
+        os.environ["BACKEND_CHROMA_COLLECTION"] = "banking_knowledge_base_v1"
+        os.environ["BACKEND_KB_MAX_FILE_SIZE_BYTES"] = "10485760"
 
         try:
             first_settings = load_settings()

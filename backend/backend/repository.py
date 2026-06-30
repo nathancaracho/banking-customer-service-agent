@@ -62,10 +62,13 @@ async def get_chat_memory(
     limit: int,
 ) -> tuple[ChatSummary | None, list[Message]]:
     summary = await session.get(ChatSummary, chat_id)
+    
+    stmt = select(Message).where(Message.chat_id == chat_id)
+    
+    if summary and summary.covered_until:
+        stmt = stmt.where(Message.created_at > summary.covered_until)
+        
     result = await session.scalars(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.desc())
-        .limit(limit)
+        stmt.order_by(Message.created_at.desc()).limit(limit)
     )
     return summary, list(reversed(list(result)))
