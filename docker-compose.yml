@@ -75,6 +75,79 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
+      BACKEND_DATABASE_SCHEMA: ${BACKEND_DATABASE_SCHEMA:-backend}
+      BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?BACKEND_JWT_SECRET is required}
+      BACKEND_JWT_ALGORITHM: ${BACKEND_JWT_ALGORITHM:-HS256}
+      BACKEND_RABBITMQ_URL: amqp://${RABBITMQ_USER:-app}:${RABBITMQ_PASSWORD:-app}@rabbitmq:5672/${RABBITMQ_VHOST:-app}
+      BACKEND_REQUEST_QUEUE: ${BACKEND_REQUEST_QUEUE:-agent.requests}
+      BACKEND_REPLY_QUEUE: ${BACKEND_REPLY_QUEUE:-agent.replies}
+      BACKEND_STREAM_TIMEOUT_SECONDS: ${BACKEND_STREAM_TIMEOUT_SECONDS:-120}
+      BACKEND_RECENT_MESSAGES_LIMIT: ${BACKEND_RECENT_MESSAGES_LIMIT:-20}
+      BACKEND_FRONTEND_ORIGIN: ${BACKEND_FRONTEND_ORIGIN:-http://localhost:5173}
+      BACKEND_DEMO_PASSWORD: ${BACKEND_DEMO_PASSWORD:?BACKEND_DEMO_PASSWORD is required}
+    ports:
+      - "${BACKEND_PORT:-8200}:8200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  banking-api:
+    build:
+      context: ./banking_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      BANKING_API_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
+      BANKING_API_DATABASE_SCHEMA: ${BANKING_API_DATABASE_SCHEMA:-banking_api}
+    ports:
+      - "${BANKING_API_PORT:-8300}:8300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - uv
+        - run
+        - --no-sync
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8300/health')"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  mcp-proxy:
+    build:
+      context: ./mcp_proxy
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      MCP_BANKING_API_BASE_URL: http://banking-api:8300
+      MCP_REQUEST_TIMEOUT_SECONDS: ${MCP_REQUEST_TIMEOUT_SECONDS:-10}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8400
+    ports:
+      - "${MCP_PORT:-8400}:8400"
+    depends_on:
+      banking-api:
+        condition: service_healthy
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
 volumes:
   postgres-data:
   rabbitmq-data:
